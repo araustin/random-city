@@ -3,26 +3,31 @@
 <head>
 <title>City</title>
 </head>
-<body>
-<div id="controlbar"><button id="redraw">Redraw</button></div>
+<body style="overflow: hidden; margin: 0; padding: 0;">
+<div id="controlbar">
+    <button id="redraw" style="position: relative; z-index: 100;">Redraw</button>
+    <button id="makeItRain" style="position: relative; z-index: 100;">Rain</button>
+</div>
 <?php 
 $depth = 8;
 $width = 800;
 $height = 600;
 for ($i = 0; $i < $depth; $i++) {
-    echo '<canvas id="draw' . $i . '" style="width: ' .  $width . 'px; height: ' . $height . 'px; position: absolute; top: 50px; left: 0; z-index: ' . $i . '"></canvas>';
+    echo '<canvas id="draw' . $i . '" style="position: absolute; bottom: 0; left: 0; z-index: ' . $i . '"></canvas>';
 }
 ?>
 <script type="text/javascript">
+(function() {
     var depth = <?php echo $depth; ?>;
     var maxBuildings = 100;
     var buildingsPer = maxBuildings / depth;
     var context = [];
-    var width = <?php echo $width; ?>;
+    var width = window.innerWidth;
     var height = <?php echo $height; ?>;
     var canvas = [];
     for (var i = 0; i < depth; i++) {
         canvas[i] = document.getElementById('draw' + i);
+        canvas[i].style.width = width + 'px';
         canvas[i].width = width;
         canvas[i].height = height;
         context[i] = canvas[i].getContext('2d');
@@ -44,11 +49,11 @@ for ($i = 0; $i < $depth; $i++) {
         context[0].fillRect(0, 0, X(100), Y(100));
         var buildingLeft, buildingTop, buildingWidth, buildingHeight, fill;
         for (var i = 0; i < 40; i++) {
-            buildingWidth = randRange(2, 15);
-            buildingHeight = randRange(2, 90);
-            buildingLeft = randRange(5, 95 - buildingWidth);
-            buildingTop = 95 - buildingHeight;
-            fill = 'rgba(' + randRange(25,255) + ',' + randRange(25,255) + ',' + randRange(25,255) + ',255)';
+            buildingWidth = randRange(2, 14);
+            buildingHeight = randRange(9, 100);
+            buildingLeft = randRange(1, 100 - buildingWidth);
+            buildingTop = 100 - buildingHeight;
+            fill = 'rgb(' + randRange(65,95) + ',' + randRange(55,95) + ',' + randRange(95,145) + ')';
             drawBuilding(buildingLeft, buildingTop, buildingWidth, buildingHeight, fill,  Math.floor(i / buildingsPer));
         }
     }
@@ -77,9 +82,9 @@ for ($i = 0; $i < $depth; $i++) {
         var numWindowsVertical = Math.floor(Math.random() * buildingHeight) + 1; 
         var windowSizeX = buildingWidth / numWindowsHorizontal - (space + space / numWindowsHorizontal);
         var windowSizeY = buildingHeight / numWindowsVertical - (space + space / numWindowsVertical);
-        var left, top, sizeX, sizeY, fillR,fillG,fillB;
-                fillG = randRange(240, 255);
-                fillR = randRange(240, 255);
+        var left, top, sizeX, sizeY, fillR, fillG, fillB;
+        fillG = randRange(40, 55);
+        fillR = randRange(40, 55);
         for (var x = 0; x < numWindowsHorizontal; x++) {
 
             for (var y = 0; y < numWindowsVertical; y++) {
@@ -107,9 +112,6 @@ for ($i = 0; $i < $depth; $i++) {
         return percent * hcent;
     }
     drawCity();
-    document.getElementById('redraw').onclick = function() {
-        drawCity();
-    }
     document.body.addEventListener("mousemove", function(event) {
         var half = width / 2;
         var magnitude = 4;
@@ -118,7 +120,117 @@ for ($i = 0; $i < $depth; $i++) {
             canvas[i].style['transform'] = 'translate(' + (moveBy * (i + 1)) + 'px)';
         }
     });
+
+    document.getElementById('redraw').onclick = function() {
+        drawCity();
+    }
+})()
 </script>
+<canvas id="rain" style="z-index: 99; position: relative;"></canvas>
+<script>
+(function () {
+    var canvas = document.getElementById('rain');
+    var ctx = canvas.getContext('2d');
+    var drops = [];
+    var start = null;
+    var steps = 1000;
+    var globalDelay = 200;
+    var numberOfDrops = 999;
+    var xOffset = 20;
+    var y = 0;
+    var strokeColor;
+    var alpha;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight + 50;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var genDrop = function() {
+        var randStartX = Math.floor(Math.random() * canvas.width);
+        var randOffset = Math.floor(Math.random() * xOffset * (Math.random() * 2 - 1));
+        var drop = {
+            x: randStartX,
+            offset: randOffset,
+            delay:  Math.floor(Math.random() * globalDelay),
+            start: 0,
+        }
+        return drop;
+    }
+    // create the drops
+    for (var i = 0; i < numberOfDrops; i++) {
+        drops.push(genDrop());
+    }
+    var makeItRain = function(timestamp) {
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        var progress = 0;
+        var doneDrops = [];
+        for (var d = drops.length - 1; d >= 0; d--) {
+            if (drops[d].delay-- >= 0) {
+                continue;
+            }
+            if (!drops[d].start) {
+                drops[d].start = timestamp;
+            }
+
+            progress = timestamp - drops[d].start
+            if (progress >= steps) {
+                progress = steps;
+            }
+
+            y = (canvas.height / steps) * progress;
+//            ctx.clearRect(drops[d].x, 0, drops[d].x + (drops[d].offset * (progress / steps)), y);
+            ctx.beginPath();
+            ctx.moveTo(drops[d].x, 0);
+            ctx.lineTo(drops[d].x + (drops[d].offset * (progress / steps)), y);
+
+            if (progress == steps) {
+                var totalProgress = timestamp - drops[d].start;
+                alpha = 1 - (totalProgress - steps) / steps;
+            } else {
+                strokeColor = 'rgb(0,0,0)';
+                alpha = 1;
+            }
+
+            if (alpha < 0) {
+                doneDrops.push(d);
+                continue;
+            }
+            ctx.globalAlpha = alpha;
+
+            ctx.strokeStyle = strokeColor;
+            ctx.stroke();
+
+        }
+
+        for (var i in doneDrops) {
+            var d = doneDrops[i];
+            drops.splice(d, 1, genDrop());
+        }
+
+        if (drops.length && raining) {
+            window.requestAnimationFrame(makeItRain);
+        }
+    }
+
+
+    window.addEventListener("resize", function(event) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight + 50;
+    });
+
+    document.getElementById('makeItRain').onclick = function() {
+        if (typeof raining == 'undefined' || !raining) {
+            raining = window.requestAnimationFrame(makeItRain);
+            canvas.style.display = 'block';
+        } else {
+            raining = false;
+            canvas.style.display = 'none';
+        }
+    }
+
+})()
+
+</script>
+
 
 </body>
 </html>
